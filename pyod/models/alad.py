@@ -374,7 +374,7 @@ class ALAD(BaseDetector):
 
         return tflite_model_quant_file
     
-    def run_tflite_model(tflite_file, X_test, index):
+    def run_tflite_model(self, tflite_file, X_test, index):
         
         # Initialize the interpreter
         interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
