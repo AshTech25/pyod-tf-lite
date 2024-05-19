@@ -17,6 +17,11 @@ from ..utils.utility import check_parameter
 from ..utils.utility import get_optimal_n_bins
 from ..utils.utility import invert_order
 
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+import onnxruntime as rt
+import numpy as np
+
 
 class HBOS(BaseDetector):
     """Histogram- based outlier detection (HBOS) is an efficient unsupervised
@@ -180,6 +185,26 @@ class HBOS(BaseDetector):
                                                        self.n_bins,
                                                        self.alpha, self.tol)
         return invert_order(np.sum(outlier_scores, axis=1))
+    
+    def convert_to_onnx(self,model,file_name):
+        initial_type = [('float_input', FloatTensorType([None, 4]))]
+        onx = convert_sklearn(model, initial_types=initial_type)
+        with open(file_name, "wb") as f:
+            f.write(onx.SerializeToString())
+
+    def predict_with_onnx(self, file_name, X_test):
+        sess = rt.InferenceSession(file_name)
+        input_name = sess.get_inputs()[0].name
+        label_name = sess.get_outputs()[0].name
+        pred_onx = sess.run([label_name], {input_name: X_test.astype(np.float32)})[0]
+        return pred_onx
+    
+    def quantize_onnx(self, model, file_name):
+        initial_type = [('float_input', FloatTensorType([None, 4]))]
+        onx = convert_sklearn(model, initial_types=initial_type)
+        quantized_model = rt.quantization.quantize_static(onx, quantization_mode=rt.quantization.QuantizationMode.IntegerOps, force_fusions=True)
+        with open(file_name, "wb") as f:
+            f.write(quantized_model.SerializeToString())
 
 
 # @njit #due to variable size of histograms, can no longer naively use numba for jit
@@ -267,6 +292,7 @@ def _calculate_outlier_scores_auto(X, bin_edges, hist, alpha,
     return outlier_scores
 
 
+
 @njit
 def _calculate_outlier_scores(X, bin_edges, hist, n_bins, alpha,
                               tol):  # pragma: no cover
@@ -351,3 +377,5 @@ def _calculate_outlier_scores(X, bin_edges, hist, n_bins, alpha,
                 outlier_scores[j, i] = out_score_i[bin_inds[j] - 1]
 
     return outlier_scores
+
+    

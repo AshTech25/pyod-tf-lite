@@ -449,3 +449,4 @@ def _average_path_length(n_samples_leaf):
 	)
 
 	return average_path_length.reshape(n_samples_leaf_shape)
+

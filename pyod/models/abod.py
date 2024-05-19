@@ -20,6 +20,12 @@ from sklearn.utils.validation import check_is_fitted
 from .base import BaseDetector
 from ..utils.utility import check_parameter
 
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+import onnxruntime as rt
+import numpy as np
+
+
 
 @njit
 def _wcos(curr_pt, a, b):  # pragma: no cover
@@ -308,3 +314,23 @@ class ABOD(BaseDetector):
             pred_score[i, :] = _calculate_wocs(curr_pt, self.X_train_, X_ind)
 
         return pred_score.ravel()
+
+    def convert_to_onnx(self,model,file_name):
+        initial_type = [('float_input', FloatTensorType([None, 4]))]
+        onx = convert_sklearn(model, initial_types=initial_type)
+        with open(file_name, "wb") as f:
+            f.write(onx.SerializeToString())
+
+    def predict_with_onnx(self, file_name, X_test):
+        sess = rt.InferenceSession(file_name)
+        input_name = sess.get_inputs()[0].name
+        label_name = sess.get_outputs()[0].name
+        pred_onx = sess.run([label_name], {input_name: X_test.astype(np.float32)})[0]
+        return pred_onx
+    
+    def quantize_onnx(self, model, file_name):
+        initial_type = [('float_input', FloatTensorType([None, 4]))]
+        onx = convert_sklearn(model, initial_types=initial_type)
+        quantized_model = rt.quantization.quantize_static(onx, quantization_mode=rt.quantization.QuantizationMode.IntegerOps, force_fusions=True)
+        with open(file_name, "wb") as f:
+            f.write(quantized_model.SerializeToString())
