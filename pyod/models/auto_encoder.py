@@ -307,6 +307,9 @@ class AutoEncoder(BaseDetector):
         interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
         interpreter.allocate_tensors()
         output = None
+        test_image = None
+        input_scale = None
+        input_zero_point = None
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()[0]
 
