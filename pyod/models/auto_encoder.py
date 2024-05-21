@@ -312,7 +312,7 @@ class AutoEncoder(BaseDetector):
         interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()[0]
-        test_X = X_test[i]
+        test_X = X_test[index]
 
         # Check if the input type is quantized, then rescale input data to uint8
         if input_details['dtype'] == np.int8:
