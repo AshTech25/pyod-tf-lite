@@ -301,15 +301,15 @@ class AutoEncoder(BaseDetector):
 
         return tflite_model_quant_file
     
-    def run_tflite_model(self,tflite_file, X_test, index):
+    def run_tflite_model(self, tflite_file, X_test, index):
         
         # Initialize the interpreter
-        interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
-        interpreter.allocate_tensors()
         output = None
         test_image = None
         input_scale = None
         input_zero_point = None
+        interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
+        interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()[0]
 
@@ -317,7 +317,7 @@ class AutoEncoder(BaseDetector):
             test_X = X_test[i]
 
         # Check if the input type is quantized, then rescale input data to uint8
-            if input_details['dtype'] == np.uint8:
+            if input_details['dtype'] == np.int8:
                 input_scale, input_zero_point = input_details["quantization"]
                 test_image = test_X / input_scale + input_zero_point
 
