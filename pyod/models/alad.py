@@ -443,7 +443,7 @@ class ALAD(BaseDetector):
         return outlier_scores
 
     
-    def decision_function_with_tflite(self, X):
+    def decision_function_with_tflite(self, quantized_model, X):
         """Predict raw anomaly score of X using the fitted detector.
         The anomaly score of an input sample is computed based on different
         detector algorithms. For consistency, outliers are assigned with
