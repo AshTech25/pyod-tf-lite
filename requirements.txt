@@ -1,4 +1,5 @@
 joblib
+tensorflow==2.8.0rc1
 matplotlib
 numpy>=1.19
 numba>=0.51
