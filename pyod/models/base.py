@@ -109,6 +109,27 @@ class BaseDetector(metaclass=abc.ABCMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def decision_function_with_tflite(self, quantized_model, X):
+        """Predict raw anomaly scores of X using the fitted detector using tflite.
+
+        The anomaly score of an input sample is computed based on the fitted
+        detector. For consistency, outliers are assigned with
+        higher anomaly scores.
+
+        Parameters
+        ----------
+        X : numpy array of shape (n_samples, n_features)
+            The input samples. Sparse matrices are accepted only
+            if they are supported by the base estimator.
+        interpreter: tflite interpreter object
+        Returns
+        -------
+        anomaly_scores : numpy array of shape (n_samples,)
+            The anomaly score of the input samples.
+        """
+        pass
+
     @deprecated()
     def fit_predict(self, X, y=None):
         """Fit detector first and then predict whether a particular sample
@@ -137,6 +158,45 @@ class BaseDetector(metaclass=abc.ABCMeta):
 
         self.fit(X, y)
         return self.labels_
+    
+    def predict_with_tflite(self,quantized_model,X,return_confidence=False):
+        """Predict if a particular sample is an outlier or not using tflite.
+
+        Parameters
+        ----------
+        X : numpy array of shape (n_samples, n_features)
+            The input samples.
+
+        return_confidence : boolean, optional(default=False)
+            If True, also return the confidence of prediction.
+
+        Returns
+        -------
+        outlier_labels : numpy array of shape (n_samples,)
+            For each observation, tells whether
+            it should be considered as an outlier according to the
+            fitted model. 0 stands for inliers and 1 for outliers.
+        confidence : numpy array of shape (n_samples,).
+            Only if return_confidence is set to True.
+        """
+
+        check_is_fitted(self, ['decision_scores_', 'threshold_', 'labels_'])
+        pred_score = self.decision_function_with_tflite(quantized_model,X)
+
+        if isinstance(self.contamination, (float, int)):
+            prediction = (pred_score > self.threshold_).astype('int').ravel()
+
+        # if this is a PyThresh object
+        else:
+            prediction = self.contamination.eval(pred_score)
+
+        if return_confidence:
+            confidence = self.predict_confidence(X)
+            return prediction, confidence
+
+        return prediction
+
+
 
     def predict(self, X, return_confidence=False):
         """Predict if a particular sample is an outlier or not.

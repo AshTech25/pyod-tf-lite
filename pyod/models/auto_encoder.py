@@ -272,9 +272,9 @@ class AutoEncoder(BaseDetector):
             yield [data.astype(np.float32)]
 
 
-    def convert_to_tflite(self, model, model_path= 'anomaly_model_quant'):
+    def convert_to_tflite_int8(self, model):
         # Create a TFLite converter instance and initialize it with the Keras model
-        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter = tf.lite.TFLiteConverter.from_keras_model(model_content = model)
     
         # Set optimization options for the converter
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -293,39 +293,75 @@ class AutoEncoder(BaseDetector):
         # Convert the model to a quantized TensorFlow Lite model
         tflite_quant_model = converter.convert()
 
-        tflite_models_dir = pathlib.Path("/tmp/tflite_models/")
-        tflite_models_dir.mkdir(exist_ok=True, parents=True)
+        return tflite_quant_model
     
-        tflite_model_quant_file = tflite_models_dir/f"{model_path}.tflite"
-        tflite_model_quant_file.write_bytes(tflite_quant_model)
+    def convert_to_tflite(self, model):
+        # Create a TFLite converter instance and initialize it with the Keras model
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    
+        # Set optimization options for the converter
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    
+        tflite_quant_model = converter.convert()
 
-        return tflite_model_quant_file
+        return tflite_quant_model
     
-    def run_tflite_model(self, tflite_file, X_test, index):
+
+    def _load_quantized_tensor(self, quantized_model):
         
         # Initialize the interpreter
-        output = None
-        test_image = None
-        input_scale = None
-        input_zero_point = None
-        interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
+        interpreter = tf.lite.Interpreter(model_path=quantized_model)
         interpreter.allocate_tensors()
+        
+        return interpreter
+        
+    def _quantized_prediction(self, quantized_model, X):
+        
+        interpreter = self._load_quantized_tensor(quantized_model)
         input_details = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()[0]
-        test_X = X_test[index]
+        test_X = X
 
-        # Check if the input type is quantized, then rescale input data to uint8
-        if input_details['dtype'] == np.int8:
-            input_scale, input_zero_point = input_details["quantization"]
-            test_image = test_X / input_scale + input_zero_point
+        output = []
 
-        test_image = np.expand_dims(test_image, axis=0).astype(input_details["dtype"])
-        interpreter.set_tensor(input_details["index"], test_image)
-        interpreter.invoke()
-        output = interpreter.get_tensor(output_details["index"])[0]
+        for index in range(test_X.shape[0]):
+            test_image = np.expand_dims(test_X[index], axis=0).astype(input_details["dtype"])
+            interpreter.set_tensor(input_details["index"], test_image)
+            interpreter.invoke()
+            output.append(interpreter.get_tensor(output_details["index"])[0])
 
-            
-        return output
+        return np.array(output)
+    
+    def decision_function_with_tflite(self, quantized_model, X):
+        """Predict raw anomaly score of X using the fitted detector.
+
+        The anomaly score of an input sample is computed based on different
+        detector algorithms. For consistency, outliers are assigned with
+        larger anomaly scores.
+
+        Parameters
+        ----------
+        X : numpy array of shape (n_samples, n_features)
+            The training input samples. Sparse matrices are accepted only
+            if they are supported by the base estimator.
+
+        Returns
+        -------
+        anomaly_scores : numpy array of shape (n_samples,)
+            The anomaly score of the input samples.
+        """
+        check_is_fitted(self, ['model_', 'history_'])
+        X = check_array(X)
+
+        if self.preprocessing:
+            X_norm = self.scaler_.transform(X)
+        else:
+            X_norm = np.copy(X)
+
+        # Predict on X and return the reconstruction errors
+        pred_scores = self._quantized_prediction(quantized_model,X_norm)
+        return pairwise_distances_no_broadcast(X_norm, pred_scores)
+
         
     def decision_function(self, X):
         """Predict raw anomaly score of X using the fitted detector.

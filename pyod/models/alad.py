@@ -345,9 +345,9 @@ class ALAD(BaseDetector):
             yield [data.astype(np.float32)]
 
 
-    def convert_to_tflite(self, model, model_path= 'anomaly_model_quant'):
+    def convert_to_tflite_int8(self, model):
         # Create a TFLite converter instance and initialize it with the Keras model
-        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter = tf.lite.TFLiteConverter.from_keras_model(model_content = model)
     
         # Set optimization options for the converter
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -366,38 +366,109 @@ class ALAD(BaseDetector):
         # Convert the model to a quantized TensorFlow Lite model
         tflite_quant_model = converter.convert()
 
-        tflite_models_dir = pathlib.Path("/tmp/tflite_models/")
-        tflite_models_dir.mkdir(exist_ok=True, parents=True)
+        return tflite_quant_model
     
-        tflite_model_quant_file = tflite_models_dir/f"{model_path}.tflite"
-        tflite_model_quant_file.write_bytes(tflite_quant_model)
+    def convert_to_tflite(self, model):
+        # Create a TFLite converter instance and initialize it with the Keras model
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    
+        # Set optimization options for the converter
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    
+        tflite_quant_model = converter.convert()
 
-        return tflite_model_quant_file
+        return tflite_quant_model
     
-    def run_tflite_model(self, tflite_file, X_test, index):
+
+    def _load_quantized_tensor(self, quantized_model):
         
         # Initialize the interpreter
-        interpreter = tf.lite.Interpreter(model_path=str(tflite_file))
+        interpreter = tf.lite.Interpreter(model_path=quantized_model)
         interpreter.allocate_tensors()
+        
+        return interpreter
+        
+    def _quantized_prediction(self, interpreter, X, input_id, output_id):
+        
+        input_details = interpreter.get_input_details()[input_id]
+        output_details = interpreter.get_output_details()[output_id]
+        test_X = X
 
-        input_details = interpreter.get_input_details()[0]
-        output_details = interpreter.get_output_details()[0]
+        output = []
 
-        for i, ind in enumerate(index):
-            test_X = X_test[ind]
-
-        # Check if the input type is quantized, then rescale input data to uint8
-            if input_details['dtype'] == np.uint8:
-                input_scale, input_zero_point = input_details["quantization"]
-                test_image = test_X / input_scale + input_zero_point
-
-            test_image = np.expand_dims(test_image, axis=0).astype(input_details["dtype"])
+        for index in range(test_X.shape[0]):
+            test_image = np.expand_dims(test_X[index], axis=0).astype(input_details["dtype"])
             interpreter.set_tensor(input_details["index"], test_image)
             interpreter.invoke()
-            output = interpreter.get_tensor(output_details["index"])[0]
+            output.append(interpreter.get_tensor(output_details["index"])[0])
 
-            
-        return output
+        return np.array(output)
+    
+    def get_quantized_models_int32(self):
+        self.quantized_enc = self.convert_to_tflite(self.enc)
+        self.quantized_dec = self.convert_to_tflite(self.dec)
+        self.quantized_disc_xz = self.convert_to_tflite(self.disc_xz)
+        self.quantized_disc_xx = self.convert_to_tflite(self.disc_xx)
+        self.quantized_disc_zz = self.convert_to_tflite(self.disc_zz)
+
+    
+    def get_outlier_scores_with_tflite(self, X):
+        """Predict outlier scores
+        Parameters  
+        ----------
+        quantized_model : str
+            The path to the quantized model.
+        X : numpy array of shape (n_samples, n_features)
+            The input samples.
+        Returns
+        -------
+        anomaly_scores : numpy array of shape (n_samples,)
+            The anomaly score of the input samples.
+        """
+        interpreter_enc = self._load_quantized_tensor(self.quantized_enc)
+        interpreter_dec = self._load_quantized_tensor(self.quantized_dec)
+        interpreter_disc_xx = self._load_quantized_tensor(self.quantized_disc_xx)
+        
+        # Step 1
+        output_enc = self._quantized_prediction(interpreter_enc, X, 0, 0)
+        # Step 2
+        output_dec = self._quantized_prediction(interpreter_dec, output_enc, 0, 0)
+        # Step 3
+        output_xx_1 = self._quantized_prediction(interpreter_disc_xx, X, 1, 1)
+        # Step 4
+        output_xx_enc_gen = self._quantized_prediction(interpreter_disc_xx, output_dec, 1, 1)
+        # Step 5
+        outlier_scores = np.mean(np.abs((output_xx_1 - output_xx_enc_gen) ** 2), axis=1)
+
+        return outlier_scores
+
+    
+    def decision_function_with_tflite(self, X):
+        """Predict raw anomaly score of X using the fitted detector.
+        The anomaly score of an input sample is computed based on different
+        detector algorithms. For consistency, outliers are assigned with
+        larger anomaly scores.
+        Parameters
+        ----------
+        X : numpy array of shape (n_samples, n_features)
+            The training input samples. Sparse matrices are accepted only
+            if they are supported by the base estimator.
+        Returns
+        -------
+        anomaly_scores : numpy array of shape (n_samples,)
+            The anomaly score of the input samples.
+        """
+        check_is_fitted(self, ['decision_scores_'])
+        X = check_array(X)
+
+        if self.preprocessing:
+            X_norm = self.scaler_.transform(X)
+        else:
+            X_norm = np.copy(X)
+
+        # Predict on X 
+        pred_scores = self.get_outlier_scores_with_tflite(X_norm)
+        return pred_scores
 
     def train_step(self, data):
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=False)
