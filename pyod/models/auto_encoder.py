@@ -310,7 +310,7 @@ class AutoEncoder(BaseDetector):
     def _load_quantized_tensor(self, quantized_model):
         
         # Initialize the interpreter
-        interpreter = tf.lite.Interpreter(model_path=quantized_model)
+        interpreter = tf.lite.Interpreter(model_content = quantized_model)
         interpreter.allocate_tensors()
         
         return interpreter

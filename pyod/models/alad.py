@@ -347,7 +347,7 @@ class ALAD(BaseDetector):
 
     def convert_to_tflite_int8(self, model):
         # Create a TFLite converter instance and initialize it with the Keras model
-        converter = tf.lite.TFLiteConverter.from_keras_model(model_content = model)
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
     
         # Set optimization options for the converter
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -383,7 +383,7 @@ class ALAD(BaseDetector):
     def _load_quantized_tensor(self, quantized_model):
         
         # Initialize the interpreter
-        interpreter = tf.lite.Interpreter(model_path=quantized_model)
+        interpreter = tf.lite.Interpreter(model_content=quantized_model)
         interpreter.allocate_tensors()
         
         return interpreter
