@@ -11,6 +11,8 @@ import abc
 import warnings
 from collections import defaultdict
 from inspect import signature
+from .base_dl import _get_tensorflow_version
+
 import tensorflow as tf
 import keras
 
