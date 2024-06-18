@@ -21,7 +21,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import deprecated
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted
-
+import time
 from .sklearn_base import _pprint
 from ..utils.utility import precision_n_scores
 
@@ -179,7 +179,7 @@ class BaseDetector(metaclass=abc.ABCMeta):
         confidence : numpy array of shape (n_samples,).
             Only if return_confidence is set to True.
         """
-
+        start = time.time()
         check_is_fitted(self, ['decision_scores_', 'threshold_', 'labels_'])
         pred_score = self.decision_function_with_tflite(quantized_model,X)
 
@@ -193,6 +193,9 @@ class BaseDetector(metaclass=abc.ABCMeta):
         if return_confidence:
             confidence = self.predict_confidence(X)
             return prediction, confidence
+        end = time.time()
+
+        self.time_taken = end - start
 
         return prediction
 
