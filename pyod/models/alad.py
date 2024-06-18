@@ -414,6 +414,7 @@ class ALAD(BaseDetector):
 
     def save_and_get_model_size(self,filename):
         model_dir = 'models'
+        os.makedirs(model_dir, exist_ok=True)
         filepath = os.path.join(model_dir, filename)
         if isinstance(self.quantized_enc, (Model, Sequential)) and isinstance(self.quantized_dec, (Model, Sequential)) and isinstance(self.quantized_disc_xz, (Model, Sequential)) and isinstance(self.quantized_disc_xx, (Model, Sequential)) and isinstance(self.quantized_disc_zz, (Model, Sequential)):
             self.quantized_enc.save(filepath)

@@ -382,6 +382,7 @@ class BaseDetector(metaclass=abc.ABCMeta):
     # Helper function to save model and get file size
     def save_and_get_size(self, model, filename):
         model_dir = 'models'
+        os.makedirs(model_dir, exist_ok=True)
         filepath = os.path.join(model_dir, filename)
         if isinstance(model, (Model, Sequential)):
             model.save(filepath)
