@@ -416,16 +416,20 @@ class ALAD(BaseDetector):
         model_dir = 'models'
         file = os.path.join(model_dir, filename)
         os.makedirs(file, exist_ok=True)
-        filepath = os.path.join(file,name)
         if isinstance(self.quantized_enc, (Model, Sequential)) and isinstance(self.quantized_dec, (Model, Sequential)) and isinstance(self.quantized_disc_xz, (Model, Sequential)) and isinstance(self.quantized_disc_xx, (Model, Sequential)) and isinstance(self.quantized_disc_zz, (Model, Sequential)):
+            filepath = os.path.join(file,'enc_'+name)
             self.quantized_enc.save(filepath)
+            filepath = os.path.join(file,'dec_'+name)
             self.quantized_dec.save(filepath)
+            filepath = os.path.join(file,'xz_'+name) 
             self.quantized_disc_xz.save(filepath)
+            filepath = os.path.join(file,'xx_'+name)     
             self.quantized_disc_xx.save(filepath)
+            filepath = os.path.join(file,'zz_'+name) 
             self.quantized_disc_zz.save(filepath)
         else:
             print('Model is not a valid model')
-        return os.path.getsize(filepath)
+        return os.path.getsize(file)
 
 
     def get_outlier_scores_with_tflite(self, X):
