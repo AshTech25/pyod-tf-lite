@@ -11,18 +11,17 @@ import abc
 import warnings
 from collections import defaultdict
 from inspect import signature
+import tensorflow as tf
+import keras
+
 if _get_tensorflow_version() < 200:
     raise NotImplementedError('Model not implemented for Tensorflow version 1')
 elif 200 <= _get_tensorflow_version() <= 209:
     import tensorflow as tf
     from tensorflow.keras.models import Model, Sequential
-    from tensorflow.keras.layers import Input, Dense, Dropout
-    from tensorflow.keras.optimizers import Adam
 else:
     import tensorflow as tf
     from tensorflow.keras.models import Model
-    from tensorflow.keras.layers import Input, Dense, Dropout
-    from tensorflow.keras.optimizers.legacy import Adam
 
 import numpy as np
 from numpy import percentile
