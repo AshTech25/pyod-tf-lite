@@ -195,11 +195,12 @@ class BaseDetector(metaclass=abc.ABCMeta):
             return prediction, confidence
         end = time.time()
 
-        self.time_taken = end - start
+        self._time_taken = end - start
 
         return prediction
 
-
+    def get_pred_time(self):
+        return self._time_taken
 
     def predict(self, X, return_confidence=False):
         """Predict if a particular sample is an outlier or not.
