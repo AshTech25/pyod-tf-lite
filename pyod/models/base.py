@@ -11,6 +11,18 @@ import abc
 import warnings
 from collections import defaultdict
 from inspect import signature
+if _get_tensorflow_version() < 200:
+    raise NotImplementedError('Model not implemented for Tensorflow version 1')
+elif 200 <= _get_tensorflow_version() <= 209:
+    import tensorflow as tf
+    from tensorflow.keras.models import Model, Sequential
+    from tensorflow.keras.layers import Input, Dense, Dropout
+    from tensorflow.keras.optimizers import Adam
+else:
+    import tensorflow as tf
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import Input, Dense, Dropout
+    from tensorflow.keras.optimizers.legacy import Adam
 
 import numpy as np
 from numpy import percentile
@@ -24,7 +36,8 @@ from sklearn.utils.validation import check_is_fitted
 import time
 from .sklearn_base import _pprint
 from ..utils.utility import precision_n_scores
-
+import os
+import pickle
 
 class BaseDetector(metaclass=abc.ABCMeta):
     """Abstract class for all outlier detection algorithms.
@@ -240,7 +253,7 @@ class BaseDetector(metaclass=abc.ABCMeta):
 
 
         self._time_taken = end - start
-        
+
         return prediction
 
     def predict_proba(self, X, method='linear', return_confidence=False):
@@ -363,6 +376,18 @@ class BaseDetector(metaclass=abc.ABCMeta):
         np.place(confidence, prediction == 0, 1 - confidence[prediction == 0])
 
         return confidence
+    
+
+    # Helper function to save model and get file size
+    def save_and_get_size(model, filename):
+        model_dir = 'models'
+        filepath = os.path.join(model_dir, filename)
+        if isinstance(model, (Model, Sequential)):
+            model.save(filepath)
+        else:
+            with open(filepath, 'wb') as f:
+                pickle.dump(model, f)
+        return os.path.getsize(filepath)
 
     def _predict_rank(self, X, normalized=False):
         """Predict the outlyingness rank of a sample by a fitted model. The

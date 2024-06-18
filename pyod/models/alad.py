@@ -16,13 +16,14 @@ import pathlib
 from .base import BaseDetector
 from .base_dl import _get_tensorflow_version
 from ..utils.utility import check_parameter
-
+import os
+import pickle
 # if tensorflow 2, import from tf directly
 if _get_tensorflow_version() < 200:
     raise NotImplementedError('Model not implemented for Tensorflow version 1')
 elif 200 <= _get_tensorflow_version() <= 209:
     import tensorflow as tf
-    from tensorflow.keras.models import Model
+    from tensorflow.keras.models import Model, Sequential
     from tensorflow.keras.layers import Input, Dense, Dropout
     from tensorflow.keras.optimizers import Adam
 else:
@@ -411,7 +412,20 @@ class ALAD(BaseDetector):
         self.quantized_disc_xx = self.convert_to_tflite(self.disc_xx)
         self.quantized_disc_zz = self.convert_to_tflite(self.disc_zz)
 
-    
+    def save_and_get_size(self,filename):
+        model_dir = 'models'
+        filepath = os.path.join(model_dir, filename)
+        if isinstance(self.quantized_enc, (Model, Sequential)) and isinstance(self.quantized_dec, (Model, Sequential)) and isinstance(self.quantized_disc_xz, (Model, Sequential)) and isinstance(self.quantized_disc_xx, (Model, Sequential)) and isinstance(self.quantized_disc_zz, (Model, Sequential)):
+            self.quantized_enc.save(filepath)
+            self.quantized_dec.save(filepath)
+            self.quantized_disc_xz.save(filepath)
+            self.quantized_disc_xx.save(filepath)
+            self.quantized_disc_zz.save(filepath)
+        else:
+            print('Model is not a valid model')
+        return os.path.getsize(filepath)
+
+
     def get_outlier_scores_with_tflite(self, X):
         """Predict outlier scores
         Parameters  
