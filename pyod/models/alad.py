@@ -412,7 +412,7 @@ class ALAD(BaseDetector):
         self.quantized_disc_xx = self.convert_to_tflite(self.disc_xx)
         self.quantized_disc_zz = self.convert_to_tflite(self.disc_zz)
 
-    def save_and_get_size(self,filename):
+    def save_and_get_model_size(self,filename):
         model_dir = 'models'
         filepath = os.path.join(model_dir, filename)
         if isinstance(self.quantized_enc, (Model, Sequential)) and isinstance(self.quantized_dec, (Model, Sequential)) and isinstance(self.quantized_disc_xz, (Model, Sequential)) and isinstance(self.quantized_disc_xx, (Model, Sequential)) and isinstance(self.quantized_disc_zz, (Model, Sequential)):
