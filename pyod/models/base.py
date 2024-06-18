@@ -221,7 +221,7 @@ class BaseDetector(metaclass=abc.ABCMeta):
         confidence : numpy array of shape (n_samples,).
             Only if return_confidence is set to True.
         """
-
+        start = time.time()
         check_is_fitted(self, ['decision_scores_', 'threshold_', 'labels_'])
         pred_score = self.decision_function(X)
 
@@ -236,6 +236,11 @@ class BaseDetector(metaclass=abc.ABCMeta):
             confidence = self.predict_confidence(X)
             return prediction, confidence
 
+        end = time.time()
+
+
+        self._time_taken = end - start
+        
         return prediction
 
     def predict_proba(self, X, method='linear', return_confidence=False):
