@@ -384,7 +384,7 @@ class BaseDetector(metaclass=abc.ABCMeta):
         model_dir = 'models'
         file = os.path.join(model_dir, filename)
         os.makedirs(file, exist_ok=True)
-        filepath = os.path.join(file, filename,name)
+        filepath = os.path.join(file,name)
         if isinstance(model, (Model, Sequential)):
             model.save(filepath)
         else:
