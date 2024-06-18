@@ -109,7 +109,6 @@ class BaseDetector(metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
     def decision_function_with_tflite(self, quantized_model, X):
         """Predict raw anomaly scores of X using the fitted detector using tflite.
 
